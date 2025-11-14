@@ -1,6 +1,8 @@
 import User from "../models/user.js";
 import bcrypt from "bcrypt";
-
+import jwt from "jsonwebtoken";
+import Verification from "../models/verification.js";
+import { sendEmail } from "../libs/send-email.js";
 
 const registerUser = async (req, res) => {
   try {
@@ -21,17 +23,36 @@ const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // create new user
-    const newUser = new User({
+    const newUser = await User.create({
       email,
       password: hashedPassword,
       name,
     });
 
-    // save user to db
-    await newUser.save();
+    const verificationToken = jwt.sign(
+      { userId: newUser._id, property: "email-verification" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
-    // TODO: send verification email
-    // await sendVerificationEmail(newUser);
+    // create verification token
+    await Verification.create({
+      userId: newUser._id,
+      token: verificationToken,
+      expiresAt: Date.now() + 60 * 60 * 1000,
+    });
+
+    // send verification email
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+    const emailBody = `Please click the following link to verify your email: ${verificationUrl}`;
+    const emailSubject = "Email Verification";
+
+    const isEmailSent = await sendEmail(newUser.email, emailSubject, emailBody);
+    if (!isEmailSent) {
+      return res.status(400).json({
+        message: "Email verification failed, please try again",
+      });
+    }
 
     res.status(201).json({
       message: "User registered, please verify your email",
