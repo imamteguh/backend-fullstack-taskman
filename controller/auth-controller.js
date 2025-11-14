@@ -39,7 +39,7 @@ const registerUser = async (req, res) => {
     });
 
     const verificationToken = jwt.sign(
-      { userId: newUser._id, property: "email-verification" },
+      { userId: newUser._id, purpose: "email-verification" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -78,4 +78,65 @@ const loginUser = async (req, res) => {
   const { email, password } = req.body;
 };
 
-export { registerUser, loginUser };
+const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    // verify token
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!payload) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { userId, purpose } = payload;
+
+    // check if purpose is email-verification
+    if (purpose !== "email-verification") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // check if verification token exists
+    const verificationToken = await Verification.findOne({
+      userId,
+      token,
+    });
+
+    if (!verificationToken) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // check if token has expired
+    if (verificationToken.expiresAt < new Date()) {
+      return res.status(401).json({ message: "Token expired" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // check if user is already verified
+    if (user.isEmailVerified) {
+      return res.status(401).json({ message: "Email already verified" });
+    }
+
+    // update user isEmailVerified to true
+    user.isEmailVerified = true;
+    await user.save();
+
+    // delete verification token
+    await Verification.findByIdAndDelete(verificationToken._id);
+
+    res.status(200).json({
+      message: "Email verified successfully",
+    });
+  } catch (error) {
+    console.log(error.message);
+    res.status(400).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export { registerUser, loginUser, verifyEmail };
