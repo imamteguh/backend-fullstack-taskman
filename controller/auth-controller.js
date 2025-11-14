@@ -68,14 +68,90 @@ const registerUser = async (req, res) => {
     });
   } catch (error) {
     console.log(error.message);
-    res.status(400).json({
+    res.status(500).json({
       message: "Internal Server Error",
     });
   }
 };
 
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    if (!user.isEmailVerified) {
+      const existingVerificationToken = await Verification.findOne({ userId: user._id });
+
+      if (existingVerificationToken && existingVerificationToken.expiresAt > new Date()) {
+        return res.status(400).json({ message: "Email not verified, please check your email" });
+      } else {
+        await Verification.findByIdAndDelete(existingVerificationToken._id);
+
+        const verificationToken = jwt.sign(
+          { userId: user._id, purpose: "email-verification" },
+          process.env.JWT_SECRET,
+          { expiresIn: "1h" }
+        );
+
+        await Verification.create({
+          userId: user._id,
+          token: verificationToken,
+          expiresAt: Date.now() + 60 * 60 * 1000,
+        });
+
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+        const emailBody = `Please click the following link to verify your email: ${verificationUrl}`;
+        const emailSubject = "Email Verification";
+
+        const isEmailSent = await sendEmail(user.email, emailSubject, emailBody);
+        if (!isEmailSent) {
+          return res.status(400).json({
+            message: "Email verification failed, please try again",
+          });
+        }
+
+        return res.status(400).json({ message: "Email not verified, please check your email" });
+      }
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, purpose: "login" },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // update user lastLogin
+    user.lastLogin = new Date();
+    await user.save();
+
+    // convert user to object
+    const userData = user.toObject();
+    delete userData.password;
+    delete userData.twoFAOtp;
+    delete userData.twoFAOtpExpires;
+
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      user: userData,
+    }); 
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
 };
 
 const verifyEmail = async (req, res) => {
@@ -133,7 +209,7 @@ const verifyEmail = async (req, res) => {
     });
   } catch (error) {
     console.log(error.message);
-    res.status(400).json({
+    res.status(500).json({
       message: "Internal Server Error",
     });
   }
