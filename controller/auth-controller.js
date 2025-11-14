@@ -3,10 +3,19 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Verification from "../models/verification.js";
 import { sendEmail } from "../libs/send-email.js";
+import aj from "../libs/arcjet.js";
 
 const registerUser = async (req, res) => {
   try {
     const { email, password, name } = req.body;
+
+    // Deduct 5 tokens from the bucket
+    const decision = await aj.protect(req, { email });
+    if (decision.isDenied()) {
+      return res.status(403).json({
+        message: "Invalid email address",
+      });
+    }
 
     // check if user already exists
     const existingUser = await User.findOne({ email });
