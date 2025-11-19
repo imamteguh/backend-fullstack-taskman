@@ -20,11 +20,36 @@ app.use(
 app.use(morgan("dev"));
 
 // db connection
-mongoose.connect(process.env.MONGODB_URI).then(() => {
-  console.log("MongoDB connected");
-}).catch((err) => {
-  console.log("MongoDB connection error:", err.message);
-});
+const connectDB = async () => {
+  const srvUri = process.env.MONGODB_URI;
+  const directUri = process.env.MONGODB_URI_DIRECT;
+
+  try {
+    await mongoose.connect(srvUri, {
+      serverSelectionTimeoutMS: 10000,
+    });
+    console.log("MongoDB connected");
+  } catch (err) {
+    console.log("MongoDB connection error:", err.message);
+
+    const isSrv = typeof srvUri === "string" && srvUri.startsWith("mongodb+srv://");
+    if (isSrv && directUri) {
+      try {
+        await mongoose.connect(directUri, {
+          serverSelectionTimeoutMS: 10000,
+        });
+        console.log("MongoDB connected (direct)");
+      } catch (err2) {
+        console.log("MongoDB direct connection error:", err2.message);
+        process.exit(1);
+      }
+    } else {
+      process.exit(1);
+    }
+  }
+};
+
+connectDB();
 
 app.use(express.json());
 

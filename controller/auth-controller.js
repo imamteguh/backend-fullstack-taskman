@@ -96,6 +96,7 @@ const loginUser = async (req, res) => {
         return res
           .status(400)
           .json({ message: "Email not verified, please check your email" });
+          
       } else {
         await Verification.findByIdAndDelete(existingVerificationToken._id);
 

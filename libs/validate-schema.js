@@ -34,10 +34,17 @@ const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+const createWorkspaceSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters long"),
+  description: z.string().optional(),
+  color: z.string().min(1, "Color is required"),
+});
+
 export {
   registerSchema,
   loginSchema,
   verifyEmailSchema,
   resetPasswordSchema,
   forgotPasswordSchema,
+  createWorkspaceSchema,
 };
