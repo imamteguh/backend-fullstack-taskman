@@ -43,5 +43,26 @@ const getWorkspaces = async (req, res) => {
   }
 };
 
+const getWorkspaceDetails = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
 
-export { createWorkspace, getWorkspaces };
+    const workspace = await Workspace.findById({
+      _id: workspaceId,
+    }).populate("members.user", "name email profilePicture");
+
+    if (!workspace) {
+      return res.status(404).json({
+        message: "Workspace not found",
+      });
+    }
+
+    res.status(200).json(workspace);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+export { createWorkspace, getWorkspaces, getWorkspaceDetails };
