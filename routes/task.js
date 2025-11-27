@@ -7,6 +7,7 @@ import {
   addComment,
   addSubTask,
   createTask,
+  deleteTask,
   getActivityByResourceId,
   getCommentsByTaskId,
   getMyTasks,
@@ -121,6 +122,15 @@ router.put(
     body: z.object({ assignees: z.array(z.string()) }),
   }),
   updateTaskAssignees
+);
+
+router.delete(
+  "/:taskId",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ taskId: z.string() }),
+  }),
+  deleteTask
 );
 
 router.get("/my-tasks", authMiddleware, getMyTasks);

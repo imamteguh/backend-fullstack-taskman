@@ -650,6 +650,46 @@ const getMyTasks = async (req, res) => {
   }
 };
 
+const deleteTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    // Remove task from project
+    const project = await Project.findById(task.project);
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    project.tasks = project.tasks.filter(
+      (task) => task.toString() !== taskId
+    );
+    await project.save();
+
+    // Delete task
+    await task.deleteOne();
+
+    res.status(200).json({
+      message: "Task deleted successfully",
+      task
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 export {
   createTask,
   getTaskById,
@@ -666,4 +706,5 @@ export {
   watchTask,
   achievedTask,
   getMyTasks,
+  deleteTask,
 };

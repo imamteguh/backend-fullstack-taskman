@@ -72,6 +72,17 @@ const projectSchema = z.object({
     .optional(),
 });
 
+const updateProjectSchema = z.object({
+  title: z.string().min(3, "Title is required").optional(),
+  description: z.string().optional(),
+  status: z
+    .enum(["Planning", "In Progress", "On Hold", "Completed", "Cancelled"])
+    .optional(),
+  startDate: z.string().optional(),
+  dueDate: z.string().optional(),
+  tags: z.string().optional(),
+});
+
 const taskSchema = z.object({
   title: z.string().min(1, "Task title is required"),
   description: z.string().optional(),
@@ -89,6 +100,7 @@ export {
   forgotPasswordSchema,
   createWorkspaceSchema,
   projectSchema,
+  updateProjectSchema,
   taskSchema,
   inviteMemberSchema,
   tokenSchema,

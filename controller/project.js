@@ -122,4 +122,59 @@ const getProjectTasks = async (req, res) => {
   }
 };
 
-export { createProject, getProjectDetails, getProjectTasks };
+const updateProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const updates = req.body;
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const isMember = project.members.some(
+      (member) => member.user.toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: "You are not a member of this project",
+      });
+    }
+
+    const updatePayload = { ...updates };
+
+    if (updatePayload.startDate) {
+      updatePayload.startDate = new Date(updatePayload.startDate);
+    }
+
+    if (updatePayload.dueDate) {
+      updatePayload.dueDate = new Date(updatePayload.dueDate);
+    }
+
+    if (updatePayload.tags !== undefined) {
+      updatePayload.tags = updatePayload.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
+    }
+
+    const updatedProject = await Project.findByIdAndUpdate(
+      projectId,
+      updatePayload,
+      { new: true }
+    );
+
+    return res.status(200).json(updatedProject);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+export { createProject, getProjectDetails, getProjectTasks, updateProject };
